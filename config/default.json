@@ -1,5 +1,4 @@
 {
-  "PORT": 9000,
   "HOST": {
     "LOCAL": "http://localhost:3000",
     "ONLINE": "",

@@ -2,18 +2,15 @@ const CryptoJS = require("crypto-js");
 const Block = require('./Block');
 
 class Blockchain {
-    constructor(blocks, io) {
+    constructor(blocks) {
         this.blocks = blocks || [this.getGenesisBlock()];
         this.currentTransactions = [];
-        this.nodes = [];
-        this.io = io;
     }
 
     toString = () => {
         return {
             blocks: this.blocks,
             currentTransactions: this.currentTransactions,
-            nodes: this.nodes,
         }
     }
 
@@ -23,6 +20,10 @@ class Blockchain {
 
     getLatestBlock() {
         return this.blocks[this.blocks.length - 1];
+    }
+
+    getBlockchain() {
+        return this.blocks;
     }
 
     getLength() {
@@ -93,10 +94,6 @@ class Blockchain {
     };
 
     /*
-    addNode(node) {
-        this.nodes.push(node);
-    }
-
     mineBlock(block) {
         this.blocks.push(block);
         console.log('Mined Successfully');
