@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const Blockchain = require('../models/Blockchain');
 const Block = require('../models/Block');
+const blockChain = require('../app'); 
 
 const sockets = [];
 
@@ -37,7 +38,7 @@ const JSONToObject = (data) => {
 };
 
 const initMessageHandler = (ws) => {
-    ws.on('message', (blockData) => {
+    ws.on('message', (data) => {
         const message = JSONToObject(data);
         if (message === null) {
             console.log('could not parse received JSON message: ' + data);
@@ -72,12 +73,12 @@ const queryChainLengthMsg = () => ({ 'type': MessageType.QUERY_LATEST, 'data': n
 const queryAllMsg = () => ({ 'type': MessageType.QUERY_ALL, 'data': null });
 
 const responseChainMsg = () => ({
-    'type': MessageType.RESPONSE_BLOCKCHAIN, 'data': JSON.stringify(getBlockchain())
+    'type': MessageType.RESPONSE_BLOCKCHAIN, 'data': JSON.stringify(blockChain.getBlockchain())
 });
 
 const responseLatestMsg = () => ({
     'type': MessageType.RESPONSE_BLOCKCHAIN,
-    'data': JSON.stringify([getLatestBlock()])
+    'data': JSON.stringify([blockChain.getLatestBlock()])
 });
 
 const initErrorHandler = (ws) => {
@@ -95,16 +96,12 @@ const handleBlockchainResponse = (receivedBlocks) => {
         return;
     }
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
-    if (!isValidBlockStructure(latestBlockReceived)) {
-        console.log('block structuture not valid');
-        return;
-    }
-    const latestBlockHeld = getLatestBlock();
+    const latestBlockHeld = blockChain.getLatestBlock();
     if (latestBlockReceived.index > latestBlockHeld.index) {
         console.log('blockchain possibly behind. We got: '
             + latestBlockHeld.index + ' Peer got: ' + latestBlockReceived.index);
         if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
-            if (addBlockToChain(latestBlockReceived)) {
+            if (blockChain.addBlock(latestBlockReceived)) {
                 broadcast(responseLatestMsg());
             }
         } else if (receivedBlocks.length === 1) {
@@ -112,7 +109,7 @@ const handleBlockchainResponse = (receivedBlocks) => {
             broadcast(queryAllMsg());
         } else {
             console.log('Received blockchain is longer than current blockchain');
-            replaceChain(receivedBlocks);
+            blockChain.replaceChain(receivedBlocks);
         }
     } else {
         console.log('received blockchain is not longer than received blockchain. Do nothing');
@@ -125,6 +122,7 @@ const broadcastLatest = () => {
 
 const connectToPeers = (newPeer) => {
     const ws = new WebSocket(newPeer);
+    console.log(ws)
     ws.on('open', () => {
         initConnection(ws);
     });
