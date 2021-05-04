@@ -11,6 +11,7 @@ app.use(express.urlencoded({
   extended: true
 }));
 
+const BlockChain = require('./models/Blockchain');
 const config = require("./config/default.json");
 const URL = config.HOST.CURRENT;
 
@@ -26,6 +27,8 @@ const io = socketIO(server, {
 app.use(cors({
   origin: [URL]
 }));
+
+const blockChain = new BlockChain(null, io);
 
 require('./middlewares/routes.mdw')(app);
 
