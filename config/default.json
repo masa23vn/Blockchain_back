@@ -1,0 +1,13 @@
+{
+  "PORT": 9000,
+  "HOST": {
+    "LOCAL": "http://localhost:3000",
+    "ONLINE": "",
+    "CURRENT": "http://localhost:3000"
+  },
+  "SERVER": {
+    "LOCAL": "http://localhost:9000",
+    "ONLINE": "",
+    "CURRENT": "http://localhost:9000"
+  }
+}
