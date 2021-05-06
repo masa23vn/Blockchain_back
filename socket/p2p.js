@@ -121,13 +121,19 @@ const broadcastLatest = () => {
 };
 
 const connectToPeers = (newPeer) => {
-    const ws = new WebSocket(newPeer);
-    ws.on('open', () => {
-        initConnection(ws);
-    });
-    ws.on('error', () => {
-        console.log('connection failed');
-    });
+    try {
+        const ws = new WebSocket(newPeer);
+        ws.on('open', () => {
+            initConnection(ws);
+        });
+        ws.on('error', () => {
+            console.log('connection failed');
+        });
+    }
+    catch (error) {
+        console.log("URL not found")
+    }
+
 };
 
 module.exports = { connectToPeers, broadcastLatest, initP2PServer, getSockets };
