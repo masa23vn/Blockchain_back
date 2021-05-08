@@ -1,7 +1,8 @@
 const WebSocket = require('ws');
 require('console-stamp')(console, '[HH:MM:ss.l]');
 const { Server } = require('ws');
-const { addBlock, Block, getBlockchain, getLatestBlock, replaceChain, isValidBlockStructure } = require('../models/Blockchain');
+const { addBlock, Block, getBlockchain, getLatestBlock, replaceChain, isValidBlockStructure, handleReceivedTransaction } = require('../models/Blockchain');
+const { getTransactionPool } = require('../models/transactionPool');
 
 const sockets = [];
 
@@ -9,6 +10,8 @@ const MessageType = {
     QUERY_LATEST: 0,
     QUERY_ALL: 1,
     RESPONSE_BLOCKCHAIN: 2,
+    QUERY_TRANSACTION_POOL: 3,
+    RESPONSE_TRANSACTION_POOL: 4
 }
 
 const initP2PServer = (p2pPort) => {
@@ -26,6 +29,10 @@ const initConnection = (ws) => {
     initMessageHandler(ws);
     initErrorHandler(ws);
     write(ws, queryChainLengthMsg());
+    // wait until connected
+    setTimeout(() => {
+        broadcast(queryTransactionPoolMsg());
+    }, 500);
 };
 
 const JSONToObject = (data) => {
@@ -39,28 +46,53 @@ const JSONToObject = (data) => {
 
 const initMessageHandler = (ws) => {
     ws.on('message', (data) => {
-        const message = JSONToObject(data);
-        if (message === null) {
-            console.log('could not parse received JSON message: ' + data);
-            return;
-        }
-        console.log('Received message' + JSON.stringify(message));
-        switch (message.type) {
-            case MessageType.QUERY_LATEST:
-                write(ws, responseLatestMsg());
-                break;
-            case MessageType.QUERY_ALL:
-                write(ws, responseChainMsg());
-                break;
-            case MessageType.RESPONSE_BLOCKCHAIN:
-                const receivedBlocks = JSONToObject(message.data);
-                if (receivedBlocks === null) {
-                    console.log('invalid blocks received:');
-                    console.log(message.data)
+        try {
+            const message = JSONToObject(data);
+            if (message === null) {
+                console.log('could not parse received JSON message: ' + data);
+                return;
+            }
+            console.log('Received message' + JSON.stringify(message));
+            switch (message.type) {
+                case MessageType.QUERY_LATEST:
+                    write(ws, responseLatestMsg());
                     break;
-                }
-                handleBlockchainResponse(receivedBlocks);
-                break;
+                case MessageType.QUERY_ALL:
+                    write(ws, responseChainMsg());
+                    break;
+                case MessageType.RESPONSE_BLOCKCHAIN:
+                    const receivedBlocks = JSONToObject(message.data);
+                    if (receivedBlocks === null) {
+                        console.log('invalid blocks received:');
+                        console.log(message.data)
+                        break;
+                    }
+                    handleBlockchainResponse(receivedBlocks);
+                    break;
+                case MessageType.QUERY_TRANSACTION_POOL:
+                    write(ws, responseTransactionPoolMsg());
+                    break;
+                case MessageType.RESPONSE_TRANSACTION_POOL:
+                    const receivedTransactions = JSONToObject(message.data);
+                    if (receivedTransactions === null) {
+                        console.log('invalid transaction received: %s', JSON.stringify(message.data));
+                        break;
+                    }
+                    receivedTransactions.forEach((transaction) => {
+                        try {
+                            handleReceivedTransaction(transaction);
+                            // if no error is thrown, transaction was indeed added to the pool
+                            // let's broadcast transaction pool
+                            broadCastTransactionPool();
+                        } catch (e) {
+                            console.log(e.message);
+                        }
+                    });
+                    break;
+
+            }
+        } catch (e) {
+            console.log(e);
         }
     });
 };
@@ -79,6 +111,15 @@ const responseChainMsg = () => ({
 const responseLatestMsg = () => ({
     'type': MessageType.RESPONSE_BLOCKCHAIN,
     'data': JSON.stringify([getLatestBlock()])
+});
+
+const queryTransactionPoolMsg = () => ({
+    'type': MessageType.QUERY_TRANSACTION_POOL,
+    'data': null
+});
+const responseTransactionPoolMsg = () => ({
+    'type': MessageType.RESPONSE_TRANSACTION_POOL,
+    'data': JSON.stringify(getTransactionPool())
 });
 
 const initErrorHandler = (ws) => {
@@ -124,6 +165,10 @@ const broadcastLatest = () => {
     broadcast(responseLatestMsg());
 };
 
+const broadCastTransactionPool = () => {
+    broadcast(responseTransactionPoolMsg());
+};
+
 const connectToPeers = (newPeer) => {
     try {
         const ws = new WebSocket(newPeer);
@@ -140,4 +185,4 @@ const connectToPeers = (newPeer) => {
 
 };
 
-module.exports = { connectToPeers, broadcastLatest, initP2PServer, getSockets };
+module.exports = { connectToPeers, broadcastLatest, initP2PServer, getSockets, broadCastTransactionPool };

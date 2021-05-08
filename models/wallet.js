@@ -35,11 +35,20 @@ const initWallet = () => {
     console.log('new wallet with private key created');
 };
 
+const deleteWallet = () => {
+    if (existsSync(privateKeyLocation)) {
+        unlinkSync(privateKeyLocation);
+    }
+};
+
 const getBalance = (address, unspentTxOuts) => {
-    return _(unspentTxOuts)
-        .filter((uTxO) => uTxO.address === address)
+    return _(findUnspentTxOuts(address, unspentTxOuts))
         .map((uTxO) => uTxO.amount)
         .sum();
+};
+
+const findUnspentTxOuts = (ownerAddress, unspentTxOuts) => {
+    return _.filter(unspentTxOuts, uTxO => uTxO.address === ownerAddress);
 };
 
 const findTxOutsForAmount = (amount, myUnspentTxOuts) => {
@@ -53,7 +62,9 @@ const findTxOutsForAmount = (amount, myUnspentTxOuts) => {
             return { includedUnspentTxOuts, leftOverAmount };
         }
     }
-    throw Error('not enough coins to send transaction');
+    const eMsg = 'Cannot create transaction from the available unspent transaction outputs.' +
+        ' Required amount:' + amount + '. Available unspentTxOuts:' + JSON.stringify(myUnspentTxOuts);
+    throw Error(eMsg);
 };
 
 const createTxOuts = (receiverAddress, myAddress, amount, leftOverAmount) => {
@@ -66,10 +77,33 @@ const createTxOuts = (receiverAddress, myAddress, amount, leftOverAmount) => {
     }
 };
 
-const createTransaction = (receiverAddress, amount, privateKey, unspentTxOuts) => {
+const filterTxPoolTxs = (unspentTxOuts, transactionPool) => {
+    const txIns = _(transactionPool)
+        .map((tx) => tx.txIns)
+        .flatten()
+        .value();
+    const removable = [];
+    for (const unspentTxOut of unspentTxOuts) {
+        const txIn = _.find(txIns, (aTxIn) => {
+            return aTxIn.txOutIndex === unspentTxOut.txOutIndex && aTxIn.txOutId === unspentTxOut.txOutId;
+        });
+
+        if (txIn === undefined) {
+
+        } else {
+            removable.push(unspentTxOut);
+        }
+    }
+
+    return _.without(unspentTxOuts, ...removable);
+};
+
+const createTransaction = (receiverAddress, amount, privateKey, unspentTxOuts, txPool) => {
 
     const myAddress = getPublicKey(privateKey);
-    const myUnspentTxOuts = unspentTxOuts.filter((uTxO) => uTxO.address === myAddress);
+    const myUnspentTxOutsA = unspentTxOuts.filter((uTxO) => uTxO.address === myAddress);
+    const myUnspentTxOuts = filterTxPoolTxs(myUnspentTxOutsA, txPool);
+    // filter from unspentOutputs such inputs that are referenced in pool
 
     const { includedUnspentTxOuts, leftOverAmount } = findTxOutsForAmount(amount, myUnspentTxOuts);
 
@@ -96,6 +130,12 @@ const createTransaction = (receiverAddress, amount, privateKey, unspentTxOuts) =
 };
 
 module.exports = {
-    createTransaction, getPublicFromWallet,
-    getPrivateFromWallet, getBalance, generatePrivateKey, initWallet
+    createTransaction,
+    getPublicFromWallet,
+    getPrivateFromWallet,
+    getBalance,
+    generatePrivateKey,
+    initWallet,
+    deleteWallet,
+    findUnspentTxOuts
 };

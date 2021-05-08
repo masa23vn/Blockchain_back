@@ -51,6 +51,9 @@ const getTransactionId = (transaction) => {
 };
 
 const validateTransaction = (transaction, aUnspentTxOuts) => {
+    if (!isValidTransactionStructure(transaction)) {
+        return false;
+    }
 
     if (getTransactionId(transaction) !== transaction.id) {
         console.log('invalid tx id: ' + transaction.id);
@@ -236,9 +239,6 @@ const updateUnspentTxOuts = (aTransactions, aUnspentTxOuts) => {
 };
 
 const processTransactions = (aTransactions, aUnspentTxOuts, blockIndex) => {
-    if (!isValidTransactionsStructure(aTransactions)) {
-        return null;
-    }
     if (!validateBlockTransactions(aTransactions, aUnspentTxOuts, blockIndex)) {
         console.log('invalid block transactions');
         return null;
@@ -307,12 +307,6 @@ const isValidTxOutStructure = (txOut) => {
     }
 };
 
-const isValidTransactionsStructure = (transactions) => {
-    return transactions
-        .map(t => isValidTransactionStructure(t))
-        .reduce((a, b) => (a && b), true);
-};
-
 const isValidTransactionStructure = (transaction) => {
     if (typeof transaction.id !== 'string') {
         console.log('transactionId missing');
@@ -342,5 +336,7 @@ const isValidTransactionStructure = (transaction) => {
 };
 
 module.exports = {
-    processTransactions, signTxIn, getTransactionId, isValidAddress, UnspentTxOut, TxIn, TxOut, getCoinbaseTransaction, getPublicKey, Transaction
+    processTransactions, signTxIn, getTransactionId, isValidAddress, validateTransaction,
+    UnspentTxOut, TxIn, TxOut, getCoinbaseTransaction, getPublicKey, hasDuplicates,
+    Transaction
 };

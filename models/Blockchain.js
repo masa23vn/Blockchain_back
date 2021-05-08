@@ -1,7 +1,9 @@
 const CryptoJS = require("crypto-js");
+const _ = require('lodash');
 const hexToBinary = require('hex-to-binary');
 const { UnspentTxOut, Transaction, processTransactions, getCoinbaseTransaction, isValidAddress } = require('./transaction');
-const { createTransaction, getBalance, getPrivateFromWallet, getPublicFromWallet } = require('./wallet');
+const { createTransaction, findUnspentTxOuts, getBalance, getPrivateFromWallet, getPublicFromWallet } = require('./wallet');
+const { addToTransactionPool, getTransactionPool, updateTransactionPool } = require('./transactionPool');
 
 class Block {
     constructor(index, hash, previousHash, timestamp, data, difficulty, nonce) {
@@ -33,6 +35,17 @@ const getBlockchain = () => blockchain;
 
 const getLatestBlock = () => blockchain[blockchain.length - 1];
 
+const getUnspentTxOuts = () => _.cloneDeep(unspentTxOuts);
+
+const getMyUnspentTransactionOutputs = () => {
+    return findUnspentTxOuts(getPublicFromWallet(), getUnspentTxOuts());
+};
+
+const setUnspentTxOuts = (newUnspentTxOut) => {
+    console.log('replacing unspentTxouts with: %s', newUnspentTxOut);
+    unspentTxOuts = newUnspentTxOut;
+};
+
 const getCurrentTimestamp = () => Math.round(new Date().getTime() / 1000);
 
 const generateRawNextBlock = (blockData) => {
@@ -53,7 +66,7 @@ const generateRawNextBlock = (blockData) => {
 
 const generateNextBlock = () => {
     const coinbaseTx = getCoinbaseTransaction(getPublicFromWallet(), getLatestBlock().index + 1);
-    const blockData = [coinbaseTx];
+    const blockData = [coinbaseTx].concat(getTransactionPool());
     return generateRawNextBlock(blockData);
 };
 
@@ -67,7 +80,8 @@ const generatenextBlockWithTransaction = (receiverAddress, amount) => {
         return null
     }
     const coinbaseTx = getCoinbaseTransaction(getPublicFromWallet(), getLatestBlock().index + 1);
-    const tx = createTransaction(receiverAddress, amount, getPrivateFromWallet(), unspentTxOuts);
+    const tx = createTransaction(receiverAddress, amount, getPrivateFromWallet(), getUnspentTxOuts(), getTransactionPool());
+
     const blockData = [coinbaseTx, tx];
     return generateRawNextBlock(blockData);
 };
@@ -96,7 +110,15 @@ const getAdjustedDifficulty = (latestBlock, aBlockchain) => {
 };
 
 const getAccountBalance = () => {
-    return getBalance(getPublicFromWallet(), unspentTxOuts);
+    return getBalance(getPublicFromWallet(), getUnspentTxOuts());
+};
+
+const sendTransaction = (address, amount) => {
+    const tx = createTransaction(address, amount, getPrivateFromWallet(), getUnspentTxOuts(), getTransactionPool());
+    addToTransactionPool(tx, getUnspentTxOuts());
+    const { broadCastTransactionPool } = require('../socket/p2p')
+    broadCastTransactionPool();
+    return tx;
 };
 
 const calculateHashForBlock = (block) =>
@@ -107,12 +129,14 @@ const calculateHash = (index, previousHash, timestamp, data, difficulty, nonce) 
 
 const addBlock = (newBlock) => {
     if (isValidNewBlock(newBlock, getLatestBlock())) {
-        const retVal = processTransactions(newBlock.data, unspentTxOuts, newBlock.index);
+        const retVal = processTransactions(newBlock.data, getUnspentTxOuts(), newBlock.index);
         if (retVal === null) {
+            console.log('block is not valid in terms of transactions');
             return false;
         } else {
             blockchain.push(newBlock);
-            unspentTxOuts = retVal;
+            setUnspentTxOuts(retVal);
+            updateTransactionPool(unspentTxOuts);
             return true;
         }
     }
@@ -156,8 +180,7 @@ const hashMatchesDifficulty = (hash, difficulty) => {
 
 const isValidNewBlock = (newBlock, previousBlock) => {
     if (!isValidBlockStructure(newBlock)) {
-        console.log('invalid block structure');
-        console.log(newBlock);
+        console.log('invalid block structure: %s', JSON.stringify(newBlock));
         return false;
     }
     if (previousBlock.index + 1 !== newBlock.index) {
@@ -221,7 +244,8 @@ const replaceChain = (newBlocks) => {
         getAccumulatedDifficulty(newBlocks) > getAccumulatedDifficulty(getBlockchain())) {
         console.log('Received blockchain is valid. Replacing current blockchain with received blockchain');
         blockchain = newBlocks;
-        unspentTxOuts = newUnspentTxOuts;
+        setUnspentTxOuts(newUnspentTxOuts);
+        updateTransactionPool(unspentTxOuts);
         const { broadcastLatest } = require('../socket/p2p')
         broadcastLatest();
     } else {
@@ -240,8 +264,23 @@ const mineBlock = (index, previousHash, timestamp, data, difficulty) => {
     }
 };
 
+const handleReceivedTransaction = (transaction) => {
+    addToTransactionPool(transaction, getUnspentTxOuts());
+};
 
 module.exports = {
-    Block, getBlockchain, getLatestBlock, generateRawNextBlock, generateNextBlock, generatenextBlockWithTransaction,
-    getAccountBalance, isValidBlockStructure, replaceChain, addBlock
+    Block,
+    getBlockchain,
+    getLatestBlock,
+    generateRawNextBlock,
+    generateNextBlock,
+    generatenextBlockWithTransaction,
+    getAccountBalance,
+    isValidBlockStructure,
+    replaceChain,
+    addBlock,
+    getUnspentTxOuts,
+    sendTransaction,
+    handleReceivedTransaction,
+    getMyUnspentTransactionOutputs
 };
