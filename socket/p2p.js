@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 require('console-stamp')(console, '[HH:MM:ss.l]');
 const { Server } = require('ws');
-const { addBlock, Block, getBlockchain, getLatestBlock, replaceChain } = require('../models/Blockchain');
+const { addBlock, Block, getBlockchain, getLatestBlock, replaceChain, isValidBlockStructure } = require('../models/Blockchain');
 
 const sockets = [];
 
@@ -96,6 +96,10 @@ const handleBlockchainResponse = (receivedBlocks) => {
         return;
     }
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
+    if (!isValidBlockStructure(latestBlockReceived)) {
+        console.log('block structuture not valid');
+        return;
+    }
     const latestBlockHeld = getLatestBlock();
     if (latestBlockReceived.index > latestBlockHeld.index) {
         console.log('blockchain possibly behind. We got: '
