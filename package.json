@@ -6,6 +6,9 @@
     "start": "node app",
     "dev": "nodemon app"
   },
+  "nodemonConfig": {
+    "ignore": ["keys/*"]
+ },
   "dependencies": {
     "axios": "^0.21.1",
     "console-stamp": "^3.0.2",

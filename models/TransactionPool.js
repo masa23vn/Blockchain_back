@@ -1,11 +1,17 @@
 const _ = require('lodash');
+const { savePoolToFile } = require('./File')
 const { Transaction, TxIn, UnspentTxOut, validateTransaction } = require('./transaction');
+const fs = require('fs');
 
 let transactionPool = [];
 
 const getTransactionPool = () => {
     return _.cloneDeep(transactionPool);
 };
+
+const setPool = (pool) => {
+    transactionPool = _.cloneDeep(pool);
+}
 
 const addToTransactionPool = (tx, unspentTxOuts) => {
 
@@ -16,8 +22,8 @@ const addToTransactionPool = (tx, unspentTxOuts) => {
     if (!isValidTxForPool(tx, transactionPool)) {
         throw Error('Trying to add invalid tx to pool');
     }
-    console.log('adding to txPool: %s', JSON.stringify(tx));
     transactionPool.push(tx);
+    savePoolToFile(transactionPool)
 };
 
 const hasTxIn = (txIn, unspentTxOuts) => {
@@ -38,8 +44,8 @@ const updateTransactionPool = (unspentTxOuts) => {
         }
     }
     if (invalidTxs.length > 0) {
-        console.log('removing the following transactions from txPool: %s', JSON.stringify(invalidTxs));
         transactionPool = _.without(transactionPool, ...invalidTxs);
+        savePoolToFile(transactionPool)
     }
 };
 
@@ -68,4 +74,4 @@ const isValidTxForPool = (tx, aTtransactionPool) => {
     return true;
 };
 
-module.exports = { addToTransactionPool, getTransactionPool, updateTransactionPool };
+module.exports = { addToTransactionPool, getTransactionPool, updateTransactionPool, setPool };

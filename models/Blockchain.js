@@ -1,6 +1,7 @@
 const CryptoJS = require("crypto-js");
 const _ = require('lodash');
 const hexToBinary = require('hex-to-binary');
+const { saveBlockchainToFile } = require('./File')
 const { UnspentTxOut, Transaction, processTransactions, getCoinbaseTransaction, isValidAddress } = require('./transaction');
 const { createTransaction, findUnspentTxOuts, getBalance, getPrivateFromWallet, getPublicFromWallet } = require('./wallet');
 const { addToTransactionPool, getTransactionPool, updateTransactionPool } = require('./transactionPool');
@@ -42,7 +43,6 @@ const getMyUnspentTransactionOutputs = () => {
 };
 
 const setUnspentTxOuts = (newUnspentTxOut) => {
-    console.log('replacing unspentTxouts with: %s', newUnspentTxOut);
     unspentTxOuts = newUnspentTxOut;
 };
 
@@ -58,6 +58,7 @@ const generateRawNextBlock = (blockData) => {
     if (addBlock(newBlock)) {
         const { broadcastLatest } = require('../socket/p2p')
         broadcastLatest();
+        saveBlockchainToFile(blockchain)
         return newBlock;
     } else {
         return null;
@@ -115,6 +116,13 @@ const getAccountBalance = () => {
 
 const sendTransaction = (address, amount) => {
     const tx = createTransaction(address, amount, getPrivateFromWallet(), getUnspentTxOuts(), getTransactionPool());
+    addToTransactionPool(tx, getUnspentTxOuts());
+    const { broadCastTransactionPool } = require('../socket/p2p')
+    broadCastTransactionPool();
+    return tx;
+};
+
+const sendTransactionGuess = (tx) => {
     addToTransactionPool(tx, getUnspentTxOuts());
     const { broadCastTransactionPool } = require('../socket/p2p')
     broadCastTransactionPool();
@@ -248,6 +256,8 @@ const replaceChain = (newBlocks) => {
         updateTransactionPool(unspentTxOuts);
         const { broadcastLatest } = require('../socket/p2p')
         broadcastLatest();
+
+        saveBlockchainToFile(blockchain)
     } else {
         console.log('Received blockchain invalid');
     }
@@ -268,6 +278,14 @@ const handleReceivedTransaction = (transaction) => {
     addToTransactionPool(transaction, getUnspentTxOuts());
 };
 
+const getFinishTransaction = (aBlockchain) => {
+    const finishTx = _(aBlockchain)
+        .map(block => block.data)
+        .flatten()
+        .value();
+    return finishTx
+}
+
 module.exports = {
     Block,
     getBlockchain,
@@ -282,5 +300,7 @@ module.exports = {
     getUnspentTxOuts,
     sendTransaction,
     handleReceivedTransaction,
-    getMyUnspentTransactionOutputs
+    getFinishTransaction,
+    getMyUnspentTransactionOutputs,
+    sendTransactionGuess
 };

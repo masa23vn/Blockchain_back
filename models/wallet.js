@@ -2,7 +2,7 @@ const CryptoJS = require("crypto-js");
 const { ec } = require('elliptic');
 const _ = require('lodash');
 const { existsSync, readFileSync, unlinkSync, writeFileSync } = require('fs');
-const { getPublicKey, getTransactionId, signTxIn, Transaction, TxIn, TxOut, UnspentTxOut } = require('./transaction');
+const { getPublicKey, getTransactionId, signTxIn, Transaction, TxIn, TxOut } = require('./transaction');
 
 const EC = new ec('secp256k1');
 const privateKeyLocation = 'keys/private_key';
@@ -26,13 +26,11 @@ const generatePrivateKey = () => {
 
 const initWallet = () => {
     // let's not override existing private keys
-    if (existsSync(privateKeyLocation)) {
-        return;
+    if (!existsSync(privateKeyLocation)) {
+        const newPrivateKey = generatePrivateKey();
+        writeFileSync(privateKeyLocation, newPrivateKey);
+        console.log('new wallet with private key created');
     }
-    const newPrivateKey = generatePrivateKey();
-
-    writeFileSync(privateKeyLocation, newPrivateKey);
-    console.log('new wallet with private key created');
 };
 
 const deleteWallet = () => {
@@ -120,6 +118,9 @@ const createTransaction = (receiverAddress, amount, privateKey, unspentTxOuts, t
     tx.txIns = unsignedTxIns;
     tx.txOuts = createTxOuts(receiverAddress, myAddress, amount, leftOverAmount);
     tx.id = getTransactionId(tx);
+    tx.receiver = receiverAddress;
+    tx.sender = myAddress;
+    tx.amount = amount;
 
     tx.txIns = tx.txIns.map((txIn, index) => {
         txIn.signature = signTxIn(tx, index, privateKey, unspentTxOuts);

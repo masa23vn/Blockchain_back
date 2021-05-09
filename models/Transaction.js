@@ -31,10 +31,13 @@ class TxOut {
 }
 
 class Transaction {
-    constructor(id, txIns, txOuts) {
+    constructor(id, txIns, txOuts, amount, sender, receiver) {
         this.id = id;
         this.txIns = txIns || [];
         this.txOuts = txOuts || [];
+        this.amount = amount;
+        this.sender = sender;
+        this.receiver = receiver;
     }
 }
 
@@ -193,6 +196,9 @@ const getCoinbaseTransaction = (address, blockIndex) => {
 
     t.txIns = [txIn];
     t.txOuts = [new TxOut(address, COINBASE_AMOUNT)];
+    t.receiver = address;
+    t.sender = '';
+    t.amount = COINBASE_AMOUNT;
     t.id = getTransactionId(t);
     return t;
 };

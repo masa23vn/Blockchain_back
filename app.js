@@ -3,29 +3,50 @@ const cors = require("cors");
 require('console-stamp')(console, '[HH:MM:ss.l]');
 require('dotenv').config()
 const http = require("http")
+const fs = require('fs');
 const createError = require('http-errors');
+const _ = require('lodash');
 const app = express();
 app.use(express.static("public"));
 app.use(express.json());
 app.use(express.urlencoded({
   extended: true
 }));
-// const URL = process.env.API;
-// app.use(cors({
-//   origin: [URL]
-// }));
+const URL = process.env.API;
+app.use(cors({
+  origin: URL
+}));
 
-const { generateNextBlock, getBlockchain, generatenextBlockWithTransaction,
-  getAccountBalance, getMyUnspentTransactionOutputs, getUnspentTxOuts, sendTransaction
-} = require('./models/Blockchain');
-const { getTransactionPool } = require('./models/transactionPool');
+const { readPoolFromFile, readBlockchainFromFile } = require('./models/File')
+const { getTransactionPool, setPool } = require('./models/transactionPool');
 const { getPublicFromWallet, initWallet } = require('./models/wallet');
+const { generateNextBlock, getBlockchain, generatenextBlockWithTransaction,
+  getAccountBalance, getMyUnspentTransactionOutputs, getUnspentTxOuts, sendTransaction,
+  getFinishTransaction, replaceChain, sendTransactionGuess
+} = require('./models/Blockchain');
 const { connectToPeers, getSockets, initP2PServer } = require('./socket/p2p');
 
 
 const httpPort = parseInt(process.env.HTTP_PORT) || 9000;
-const p2pPort = parseInt(process.env.P2P_PORT) || 3000;
+const p2pPort = parseInt(process.env.P2P_PORT) || 8000;
 
+initP2PServer(p2pPort);
+initWallet();
+
+// read blockchain and pool file
+const blockchainLocation = 'keys/chain.json';
+const poolLocation = 'keys/tx.json';
+if (fs.existsSync(blockchainLocation)) {
+  const data = readBlockchainFromFile()
+  //console.log(data)
+  if (data && data.length === 1) {
+    return
+  }
+  replaceChain(data)
+}
+if (fs.existsSync(poolLocation)) {
+  setPool(readPoolFromFile())
+}
 
 // route
 app.get('/blocks', (req, res) => {
@@ -52,6 +73,35 @@ app.get('/address', (req, res) => {
 
 app.get('/pool', (req, res) => {
   res.send(getTransactionPool());
+});
+
+app.get('/finishPool', (req, res) => {
+  const pool = getFinishTransaction(getBlockchain());
+  res.send(pool);
+});
+
+app.get('/block/:id', (req, res) => {
+  const block = _.find(getBlockchain(), { 'index': Number(req.params.id) });
+  if (block) {
+    res.send(block);
+  }
+  else {
+    res.status(400).send('could not find block');
+  }
+});
+
+app.get('/transaction/:id', (req, res) => {
+  const tx = _(getBlockchain())
+    .map((blocks) => blocks.data)
+    .flatten()
+    .find({ 'id': req.params.id });
+  res.send(tx);
+});
+
+app.get('/address/:address', (req, res) => {
+  const unspentTxOuts =
+    _.filter(getUnspentTxOuts(), (uTxO) => uTxO.address === req.params.address);
+  res.send({ 'unspentTxOuts': unspentTxOuts });
 });
 
 app.get('/peers', (req, res) => {
@@ -82,11 +132,21 @@ app.post('/mineTransaction', (req, res) => {           //  reward for miner and 
 app.post('/sendTransaction', (req, res) => {
   try {
     const address = req.body.address;
-    const amount = req.body.amount;
+    const amount = Number(req.body.amount);
     if (address === undefined || amount === undefined) {
       throw Error('invalid address or amount');
     }
     const resp = sendTransaction(address, amount);
+    res.send(resp);
+  } catch (e) {
+    console.log(e.message);
+    res.status(400).send(e.message);
+  }
+});
+
+app.post('/sendTransactionGuess', (req, res) => {
+  try {
+    const resp = sendTransactionGuess(req.body.transaction);
     res.send(resp);
   } catch (e) {
     console.log(e.message);
@@ -114,6 +174,4 @@ app.listen(httpPort, () => {
   console.log('Listening http on port: ' + httpPort);
 });
 
-initP2PServer(p2pPort);
-initWallet();
 
