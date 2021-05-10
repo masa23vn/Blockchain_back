@@ -104,7 +104,7 @@ const getAdjustedDifficulty = (latestBlock, aBlockchain) => {
     if (timeTaken < timeExpected / 2) {
         return prevAdjustmentBlock.difficulty + 1;
     } else if (timeTaken > timeExpected * 2) {
-        return prevAdjustmentBlock.difficulty - 1;
+        return prevAdjustmentBlock.difficulty > 0 ? prevAdjustmentBlock.difficulty - 1 : 0;
     } else {
         return prevAdjustmentBlock.difficulty;
     }
@@ -182,7 +182,7 @@ const isValidBlockStructure = (block) => {
 
 const hashMatchesDifficulty = (hash, difficulty) => {
     const hashInBinary = hexToBinary(hash);
-    const requiredPrefix = '0'.repeat(difficulty);
+    const requiredPrefix = '0'.repeat(Number(difficulty));
     return hashInBinary.startsWith(requiredPrefix);
 };
 

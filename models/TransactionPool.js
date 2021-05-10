@@ -9,8 +9,15 @@ const getTransactionPool = () => {
     return _.cloneDeep(transactionPool);
 };
 
-const setPool = (pool) => {
-    transactionPool = _.cloneDeep(pool);
+const setPool = (pool, unspentTxOuts) => {
+    let temp = [];
+    for (let i = 0; i < pool.length; i++) {
+        if (!validateTransaction(pool[i], unspentTxOuts)) {
+            continue
+        }
+        temp.push(pool[i])
+    }
+    transactionPool = _.cloneDeep(temp);
 }
 
 const addToTransactionPool = (tx, unspentTxOuts) => {

@@ -30,7 +30,6 @@ const { connectToPeers, getSockets, initP2PServer } = require('./socket/p2p');
 const httpPort = parseInt(process.env.HTTP_PORT) || 9000;
 const p2pPort = parseInt(process.env.P2P_PORT) || 8000;
 
-initP2PServer(p2pPort);
 initWallet();
 
 // read blockchain and pool file
@@ -174,4 +173,4 @@ app.listen(httpPort, () => {
   console.log('Listening http on port: ' + httpPort);
 });
 
-
+initP2PServer(p2pPort);
