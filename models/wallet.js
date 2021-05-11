@@ -10,7 +10,7 @@ const privateKeyLocation = 'keys/private_key';
 const getPrivateFromWallet = () => {
     const encrypted = readFileSync(privateKeyLocation, 'utf8');
     const privateKey = CryptoJS.AES.decrypt(encrypted, process.env.PASS).toString(CryptoJS.enc.Utf8);
-    return buffer.toString();
+    return privateKey.toString();
 };
 
 const getPublicFromWallet = () => {

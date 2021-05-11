@@ -73,7 +73,7 @@ const generateNextBlock = () => {
 
 const generateNextBlockGuess = (address) => {
     if (!isValidAddress(address)) {
-        throw new Error("Invalid public key")
+        throw new Error("Invalid key")
     }
     const coinbaseTx = getCoinbaseTransaction(address, getLatestBlock().index + 1);
     const blockData = [coinbaseTx].concat(getTransactionPool());
@@ -121,6 +121,13 @@ const getAdjustedDifficulty = (latestBlock, aBlockchain) => {
 
 const getAccountBalance = () => {
     return getBalance(getPublicFromWallet(), getUnspentTxOuts());
+};
+
+const getAccountBalanceGuess = (publicKey) => {
+    if (!isValidAddress(publicKey)) {
+        throw new Error("Invalid key")
+    }
+    return getBalance(publicKey, getUnspentTxOuts());
 };
 
 const sendTransaction = (address, amount) => {
@@ -295,6 +302,12 @@ const getFinishTransaction = (aBlockchain) => {
     return finishTx
 }
 
+const getFinishTransactionGuess = (aBlockchain, address) => {
+    const finList = getFinishTransaction(aBlockchain);
+    const guestList = finList.filter(i => i.sender === address || i.receiver === address)
+    return guestList
+}
+
 module.exports = {
     Block,
     getBlockchain,
@@ -312,5 +325,7 @@ module.exports = {
     getFinishTransaction,
     getMyUnspentTransactionOutputs,
     sendTransactionGuess,
-    generateNextBlockGuess
+    generateNextBlockGuess,
+    getAccountBalanceGuess,
+    getFinishTransactionGuess
 };

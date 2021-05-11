@@ -20,7 +20,8 @@ const { getTransactionPool, setPool } = require('./models/transactionPool');
 const { getPublicFromWallet, initWallet } = require('./models/wallet');
 const { generateNextBlock, getBlockchain, generatenextBlockWithTransaction,
   getAccountBalance, getMyUnspentTransactionOutputs, getUnspentTxOuts, sendTransaction,
-  getFinishTransaction, replaceChain, sendTransactionGuess, generateNextBlockGuess
+  getFinishTransaction, replaceChain, sendTransactionGuess, generateNextBlockGuess, getAccountBalanceGuess,
+  getFinishTransactionGuess
 } = require('./models/Blockchain');
 const { connectToPeers, getSockets, initP2PServer } = require('./socket/p2p');
 
@@ -69,6 +70,16 @@ app.get('/balance', (req, res) => {
   res.send({ 'balance': balance });
 });
 
+app.post('/balanceGuess', (req, res) => {
+  try {
+    const balance = getAccountBalanceGuess(req.body.address);
+    res.send({ 'balance': balance });
+  }
+  catch (error) {
+    res.status(400).send(error.message);
+  }
+});
+
 app.get('/unSpent', (req, res) => {
   res.send(getUnspentTxOuts());
 });
@@ -89,6 +100,16 @@ app.get('/pool', (req, res) => {
 app.get('/finishPool', (req, res) => {
   const pool = getFinishTransaction(getBlockchain());
   res.send(pool);
+});
+
+app.post('/finishPoolGuess', (req, res) => {
+  try {
+    const pool = getFinishTransactionGuess(getBlockchain(), req.body.address);
+    res.send(pool);
+  }
+  catch (error) {
+    res.status(400).send(error.message);
+  }
 });
 
 app.get('/block/:id', (req, res) => {
