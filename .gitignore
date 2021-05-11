@@ -1,6 +1,5 @@
 node_modules
 build
 npm-debug.log
-.env
 .DS_Store
 keys/private_key
