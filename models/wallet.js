@@ -8,7 +8,8 @@ const EC = new ec('secp256k1');
 const privateKeyLocation = 'keys/private_key';
 
 const getPrivateFromWallet = () => {
-    const buffer = readFileSync(privateKeyLocation, 'utf8');
+    const encrypted = readFileSync(privateKeyLocation, 'utf8');
+    const privateKey = CryptoJS.AES.decrypt(encrypted, process.env.PASS).toString(CryptoJS.enc.Utf8);
     return buffer.toString();
 };
 
@@ -28,7 +29,8 @@ const initWallet = () => {
     // let's not override existing private keys
     if (!existsSync(privateKeyLocation)) {
         const newPrivateKey = generatePrivateKey();
-        writeFileSync(privateKeyLocation, newPrivateKey);
+        const encrypted = CryptoJS.AES.encrypt(newPrivateKey, process.env.PASS)
+        writeFileSync(privateKeyLocation, encrypted);
         console.log('new wallet with private key created');
     }
 };

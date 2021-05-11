@@ -46,7 +46,7 @@ const setUnspentTxOuts = (newUnspentTxOut) => {
     unspentTxOuts = newUnspentTxOut;
 };
 
-const getCurrentTimestamp = () => Math.round(new Date().getTime() / 1000);
+const getCurrentTimestamp = () => new Date().getTime();
 
 const generateRawNextBlock = (blockData) => {
     const previousBlock = getLatestBlock();
@@ -67,6 +67,15 @@ const generateRawNextBlock = (blockData) => {
 
 const generateNextBlock = () => {
     const coinbaseTx = getCoinbaseTransaction(getPublicFromWallet(), getLatestBlock().index + 1);
+    const blockData = [coinbaseTx].concat(getTransactionPool());
+    return generateRawNextBlock(blockData);
+};
+
+const generateNextBlockGuess = (address) => {
+    if (!isValidAddress(address)) {
+        throw new Error("Invalid public key")
+    }
+    const coinbaseTx = getCoinbaseTransaction(address, getLatestBlock().index + 1);
     const blockData = [coinbaseTx].concat(getTransactionPool());
     return generateRawNextBlock(blockData);
 };
@@ -302,5 +311,6 @@ module.exports = {
     handleReceivedTransaction,
     getFinishTransaction,
     getMyUnspentTransactionOutputs,
-    sendTransactionGuess
+    sendTransactionGuess,
+    generateNextBlockGuess
 };

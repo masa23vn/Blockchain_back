@@ -2,9 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require('console-stamp')(console, '[HH:MM:ss.l]');
 require('dotenv').config()
-const http = require("http")
 const fs = require('fs');
-const createError = require('http-errors');
 const _ = require('lodash');
 const app = express();
 app.use(express.static("public"));
@@ -17,12 +15,12 @@ app.use(cors({
   origin: URL
 }));
 
-const { readPoolFromFile, readBlockchainFromFile } = require('./models/File')
+const { readPoolFromFile, readBlockchainFromFile, saveBlockchainToFile, savePoolToFile } = require('./models/File')
 const { getTransactionPool, setPool } = require('./models/transactionPool');
 const { getPublicFromWallet, initWallet } = require('./models/wallet');
 const { generateNextBlock, getBlockchain, generatenextBlockWithTransaction,
   getAccountBalance, getMyUnspentTransactionOutputs, getUnspentTxOuts, sendTransaction,
-  getFinishTransaction, replaceChain, sendTransactionGuess
+  getFinishTransaction, replaceChain, sendTransactionGuess, generateNextBlockGuess
 } = require('./models/Blockchain');
 const { connectToPeers, getSockets, initP2PServer } = require('./socket/p2p');
 
@@ -37,14 +35,28 @@ const blockchainLocation = 'keys/chain.json';
 const poolLocation = 'keys/tx.json';
 if (fs.existsSync(blockchainLocation)) {
   const data = readBlockchainFromFile()
-  //console.log(data)
-  if (data && data.length === 1) {
-    return
+  if (data && data.length > 1) {
+    replaceChain(data)
   }
-  replaceChain(data)
+  else {
+    saveBlockchainToFile(getBlockchain())
+  }
 }
+else {
+  saveBlockchainToFile(getBlockchain())
+}
+
 if (fs.existsSync(poolLocation)) {
-  setPool(readPoolFromFile())
+  const data = readPoolFromFile()
+  if (data) {
+    setPool(data)
+  }
+  else {
+    savePoolToFile([])
+  }
+}
+else {
+  savePoolToFile([])
 }
 
 // route
@@ -116,6 +128,20 @@ app.post('/mineBlock', (req, res) => {                 //  reward for miner, but
   }
 });
 
+app.post('/mineBlockGuess', (req, res) => {                 //  reward for miner, but without transactiontry
+  try {
+    const newBlock = generateNextBlockGuess(req.body.address);
+    if (newBlock === null) {
+      res.status(400).send('could not generate block');
+    } else {
+      res.send(newBlock);
+    }
+  }
+  catch (error) {
+    res.status(400).send(error.message);
+  }
+});
+
 app.post('/mineTransaction', (req, res) => {           //  reward for miner and with transaction
   const address = req.body.address;
   const amount = Number(req.body.amount);
@@ -154,8 +180,12 @@ app.post('/sendTransactionGuess', (req, res) => {
 });
 
 app.post('/addPeer', (req, res) => {
-  connectToPeers(req.body.peer);
-  res.send();
+  try {
+    connectToPeers(req.body.peer);
+    res.send(200);
+  } catch (e) {
+    res.status(400).send(e.message)
+  }
 });
 
 app.post('/stop', (req, res) => {
@@ -173,4 +203,5 @@ app.listen(httpPort, () => {
   console.log('Listening http on port: ' + httpPort);
 });
 
+// websocket for other server
 initP2PServer(p2pPort);

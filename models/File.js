@@ -10,11 +10,15 @@ const saveBlockchainToFile = (blockchain) => {
 
 const readBlockchainFromFile = () => {
     try {
-        const data = JSON.parse(fs.readFileSync('keys/chain.json', 'utf8'));
+        const file = fs.readFileSync('keys/chain.json', 'utf8')
+        if (file === '') {
+            return null
+        }
+        const data = JSON.parse(file);
         return data
     } catch (err) {
         console.log(err)
-        return []
+        return null
     }
 }
 
@@ -29,11 +33,15 @@ const savePoolToFile = (transactionPool) => {
 
 const readPoolFromFile = () => {
     try {
-        const data = JSON.parse(fs.readFileSync('keys/tx.json', 'utf8'));
+        const file = fs.readFileSync('keys/tx.json', 'utf8')
+        if (file === '') {
+            return null
+        }
+        const data = JSON.parse(file);
         return data
     } catch (err) {
         console.log(err)
-        return []
+        return null
     }
 }
 

@@ -180,7 +180,8 @@ const connectToPeers = (newPeer) => {
         });
     }
     catch (error) {
-        console.log("URL not found")
+        console.log('Connection failed. Please check input URL');
+        throw Error('Connection failed. Please check input URL');
     }
 
 };
